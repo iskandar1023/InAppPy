@@ -92,6 +92,12 @@ class GooglePlayVerifier:
             token=purchase_token
         ).execute(http=self.http)
 
+    def get_product(self, purchase_token, product_sku, service):
+        return service.purchases().products().get(
+            packageName=self.bundle_id,
+            productId=product_sku,
+            token=purchase_token
+        ).execute(http=self.http)
 
     def verify(self, purchase_token, product_sku, is_subscription=False):
         service = build("androidpublisher", "v3", http=self.http)
@@ -103,6 +109,10 @@ class GooglePlayVerifier:
             ms_timestamp = subscriptions.get('expiryTimeMillis', 0)
             if _ms_timestamp_expired(ms_timestamp):
                 raise GoogleError('Subscription expired', subscriptions)
+            return subscriptions
         else:
-            raise NotImplementedError()
-        return subscriptions
+            product = self.get_product(purchase_token, product_sku, service)
+            purchase_state = product.get('purchaseState', 1)
+            if purchase_state == 1:
+                raise GoogleError('Purchase is canceled')
+            return product
